@@ -138,13 +138,13 @@ $$|\psi\rangle = \alpha |0\rangle + \beta |1\rangle, \quad \alpha, \beta \in \ma
 
 | Gate | Symbol | Matrix Representation | Function |
 | :--- | :---: | :---: | :--- |
-| **Hadamard** | $H$ | $\frac{1}{\sqrt{2}} \begin{bmatrix} 1 & 1 \\ 1 & -1 \end{bmatrix}$ | Creates equal superposition: $H|0\rangle = \frac{\|0\rangle + \|1\rangle}{\sqrt{2}}$ |
-| **Pauli-X** | $X$ | $\begin{bmatrix} 0 & 1 \\ 1 & 0 \end{bmatrix}$ | Bit-flip (Quantum NOT): $X|0\rangle = |1\rangle$ |
-| **Pauli-Y** | $Y$ | $\begin{bmatrix} 0 & -i \\ i & 0 \end{bmatrix}$ | Bit and phase flip |
-| **Pauli-Z** | $Z$ | $\begin{bmatrix} 1 & 0 \\ 0 & -1 \end{bmatrix}$ | Phase flip: $Z|1\rangle = -|1\rangle$ |
-| **CNOT** | $CX$ | $\begin{bmatrix} 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & 0 & 1 \\ 0 & 0 & 1 & 0 \end{bmatrix}$ | Controlled-NOT: Flips target if control is $\|1\rangle$ |
-| **Toffoli** | $CCX$ / $T_3$ | $8 \times 8$ Permutation Matrix | Controlled-Controlled-NOT: Flips target if both controls are $\|1\rangle$ |
-| **SWAP** | $SWAP$ | $\begin{bmatrix} 1 & 0 & 0 & 0 \\ 0 & 0 & 1 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & 0 & 1 \end{bmatrix}$ | Swaps states of two qubits |
+| **Hadamard** | $H$ | $\frac{1}{\sqrt{2}} \begin{bmatrix} 1 & 1 \\\\ 1 & -1 \end{bmatrix}$ | Creates equal superposition: $H\vert 0\rangle = \frac{\vert 0\rangle + \vert 1\rangle}{\sqrt{2}}$ |
+| **Pauli-X** | $X$ | $\begin{bmatrix} 0 & 1 \\\\ 1 & 0 \end{bmatrix}$ | Bit-flip (Quantum NOT): $X\vert 0\rangle = \vert 1\rangle$ |
+| **Pauli-Y** | $Y$ | $\begin{bmatrix} 0 & -i \\\\ i & 0 \end{bmatrix}$ | Bit and phase flip |
+| **Pauli-Z** | $Z$ | $\begin{bmatrix} 1 & 0 \\\\ 0 & -1 \end{bmatrix}$ | Phase flip: $Z\vert 1\rangle = -\vert 1\rangle$ |
+| **CNOT** | $CX$ | $\begin{bmatrix} 1 & 0 & 0 & 0 \\\\ 0 & 1 & 0 & 0 \\\\ 0 & 0 & 0 & 1 \\\\ 0 & 0 & 1 & 0 \end{bmatrix}$ | Controlled-NOT: Flips target if control is $\vert 1\rangle$ |
+| **Toffoli** | $CCX$ / $T_3$ | $8 \times 8$ Permutation Matrix | Controlled-Controlled-NOT: Flips target if both controls are $\vert 1\rangle$ |
+| **SWAP** | $SWAP$ | $\begin{bmatrix} 1 & 0 & 0 & 0 \\\\ 0 & 0 & 1 & 0 \\\\ 0 & 1 & 0 & 0 \\\\ 0 & 0 & 0 & 1 \end{bmatrix}$ | Swaps states of two qubits |
 
 ---
 
@@ -165,8 +165,8 @@ Quantum Image Processing (QIP) focuses on converting classical visual informatio
 
 | Model | Full Name | Gray Encoding Method | Total Qubits ($2^n \times 2^n$) | Retrieval Complexity | Image Recovery |
 | :--- | :--- | :--- | :---: | :---: | :---: |
-| **FRQI** | Flexible Representation of Quantum Images | Probability Amplitude $\cos \theta \|0\rangle + \sin \theta \|1\rangle$ | $2n + 1$ | High ($\mathcal{O}(2^{2n})$ measurements) | Approximate |
-| **NEQR** | **Novel Enhanced Quantum Representation** | **Separate Bitstring $|C_{q-1} \dots C_0\rangle$** | **$2n + q$** | **Low ($\mathcal{O}(q)$ measurements)** | **Exact** |
+| **FRQI** | Flexible Representation of Quantum Images | Probability Amplitude $\cos \theta \vert 0\rangle + \sin \theta \vert 1\rangle$ | $2n + 1$ | High ($\mathcal{O}(2^{2n})$ measurements) | Approximate |
+| **NEQR** | **Novel Enhanced Quantum Representation** | **Separate Bitstring $\vert C_{q-1} \dots C_0\rangle$** | **$2n + q$** | **Low ($\mathcal{O}(q)$ measurements)** | **Exact** |
 | **NCQI** | Novel Color Quantum Image | RGB 3-channel bitstrings | $2n + 3q$ | Low | Exact |
 | **GQIR** | Generalized Quantum Image Representation | Arbitrary $M \times N$ size grid | $\lceil\log_2 M\rceil + \lceil\log_2 N\rceil + q$ | Low | Exact |
 
@@ -207,13 +207,13 @@ The complete QSED algorithm consists of 6 sequential steps illustrated below:
 
 ```mermaid
 flowchart TD
-    A[Original Digital Image 2^n x 2^n] --> B[Step 1: NEQR Encoding |I>]
-    B --> C[Step 2: Quantum Shift Transformation 5x5 Window]
-    C --> D[Step 3: 8-Direction Sobel Gradient Calculation |G>]
-    D --> E[Step 4: Non-Maximum Suppression NMS |G_S>]
-    E --> F[Step 5: Double Threshold Detection T_H, T_L |E>]
-    F --> G[Step 6: Hysteresis Edge Tracking 24-Neighborhood |B>]
-    G --> H[Final Quantum Edge Map |B_YX>]
+    A["Original Digital Image 2^n x 2^n"] --> B["Step 1: NEQR Encoding |I>"]
+    B --> C["Step 2: Quantum Shift Transformation 5x5 Window"]
+    C --> D["Step 3: 8-Direction Sobel Gradient Calculation |G>"]
+    D --> E["Step 4: Non-Maximum Suppression NMS |G_S>"]
+    E --> F["Step 5: Double Threshold Detection T_H, T_L |E>"]
+    F --> G["Step 6: Hysteresis Edge Tracking 24-Neighborhood |B>"]
+    G --> H["Final Quantum Edge Map |B_YX>"]
 ```
 
 ---
