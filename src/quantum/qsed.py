@@ -80,7 +80,8 @@ class QSEDRunner:
 
     def run_pipeline(
         self,
-        image_matrix: np.ndarray
+        image_matrix: np.ndarray,
+        run_keypoint_analysis: bool = False
     ) -> Dict[str, np.ndarray]:
         """
         Run the complete 6-stage QSED pipeline.
@@ -103,11 +104,11 @@ class QSEDRunner:
                 - 'final_edges': Final binary edge map |B>
         """
         if self.mode == 'quantum' and image_matrix.shape[0] <= 8:
-            return self._run_quantum_circuit_pipeline(image_matrix)
+            return self._run_quantum_circuit_pipeline(image_matrix, run_keypoint_analysis)
         else:
-            return self._run_hybrid_pipeline(image_matrix)
+            return self._run_hybrid_pipeline(image_matrix, run_keypoint_analysis)
 
-    def _run_hybrid_pipeline(self, image_matrix: np.ndarray) -> Dict[str, np.ndarray]:
+    def _run_hybrid_pipeline(self, image_matrix: np.ndarray, run_keypoint_analysis: bool = False) -> Dict[str, np.ndarray]:
         """
         Execute the exact quantum mathematical workflow using array simulation (Section 4.2).
 
@@ -138,7 +139,7 @@ class QSEDRunner:
         # Step 6: Edge Tracking via Hysteresis
         final_edges = edge_tracking_hysteresis(thresh_map)
 
-        return {
+        results = {
             'original': image_matrix,
             'directional_gradients': dir_grads,
             'gradient_magnitude': grad_mag,
@@ -151,7 +152,27 @@ class QSEDRunner:
             'final_edges': final_edges
         }
 
-    def _run_quantum_circuit_pipeline(self, image_matrix: np.ndarray) -> Dict[str, np.ndarray]:
+        if run_keypoint_analysis:
+            from ..feature.directional_variation import compute_directional_variation, compute_keypoint_score
+            from ..feature.keypoint_detection import detect_keypoints
+            from ..feature.von_neumann import compute_entropy_map
+            
+            dir_var_map = compute_directional_variation(dom_dir, grad_mag)
+            kp_score_map = compute_keypoint_score(grad_mag, dir_var_map)
+            keypoints = detect_keypoints(grad_mag, dom_dir, final_edges, dir_var_map, kp_score_map)
+            entropy_map, entropy_map_norm = compute_entropy_map(image_matrix)
+            
+            results.update({
+                'keypoints': keypoints,
+                'directional_variation_map': dir_var_map,
+                'keypoint_score_map': kp_score_map,
+                'entropy_map': entropy_map,
+                'entropy_map_normalized': entropy_map_norm
+            })
+
+        return results
+
+    def _run_quantum_circuit_pipeline(self, image_matrix: np.ndarray, run_keypoint_analysis: bool = False) -> Dict[str, np.ndarray]:
         """
         Build and execute actual Qiskit quantum circuits for small test images (2x2, 4x4).
         """
@@ -163,7 +184,7 @@ class QSEDRunner:
         reconstructed = NEQRImage.decode_statevector(sv, n=neqr.n, q_bits=self.q_bits)
 
         # Run mathematical stages on quantum state representation
-        results = self._run_hybrid_pipeline(reconstructed)
+        results = self._run_hybrid_pipeline(reconstructed, run_keypoint_analysis)
         results['neqr_circuit'] = neqr_qc
         results['statevector'] = sv
 
