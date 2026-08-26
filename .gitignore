@@ -42,3 +42,7 @@ htmlcov/
 scratch/
 QSED_utf8.md
 outputs/my_experiment
+outputs/similarity*
+outputs/test_*
+outputs/v3_*
+outputs/sim_*

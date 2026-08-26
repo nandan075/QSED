@@ -8,6 +8,14 @@ from .density_matrix import build_intensity_density_matrix, build_covariance_den
 from .von_neumann import von_neumann_entropy, normalized_entropy, compute_entropy_map, save_entropy_outputs
 from .keypoint_detection import Keypoint, detect_keypoints, keypoints_to_csv, keypoints_to_array
 from .ranking import rank_keypoints, select_top_keypoints
+from .similarity import (
+    compute_similarity,
+    compute_entropy_deviation,
+    compute_entropy_complexity_similarity,
+    compute_spatial_pyramid_entropy_similarity,
+    compute_pooled_spatial_correlation,
+    save_similarity_outputs,
+)
 
 __all__ = [
     'angular_difference',
@@ -28,4 +36,11 @@ __all__ = [
     'keypoints_to_array',
     'rank_keypoints',
     'select_top_keypoints',
+    'compute_similarity',
+    'compute_entropy_deviation',
+    'compute_entropy_complexity_similarity',
+    'compute_spatial_pyramid_entropy_similarity',
+    'compute_pooled_spatial_correlation',
+    'save_similarity_outputs',
 ]
+
