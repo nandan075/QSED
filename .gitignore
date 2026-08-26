@@ -41,3 +41,4 @@ htmlcov/
 # Project specific temporary
 scratch/
 QSED_utf8.md
+outputs/my_experiment
