@@ -16,6 +16,13 @@ from .similarity import (
     compute_pooled_spatial_correlation,
     save_similarity_outputs,
 )
+from .quantum_sift_entropy import (
+    extract_sift_density_matrix,
+    compute_von_neumann_entropy,
+    compute_quantum_jsd,
+    compute_mixed_state_fidelity,
+    compute_4direction_sift_match
+)
 
 __all__ = [
     'angular_difference',
@@ -42,5 +49,10 @@ __all__ = [
     'compute_spatial_pyramid_entropy_similarity',
     'compute_pooled_spatial_correlation',
     'save_similarity_outputs',
+    'extract_sift_density_matrix',
+    'compute_von_neumann_entropy',
+    'compute_quantum_jsd',
+    'compute_mixed_state_fidelity',
+    'compute_4direction_sift_match',
 ]
 

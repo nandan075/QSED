@@ -46,3 +46,7 @@ outputs/similarity*
 outputs/test_*
 outputs/v3_*
 outputs/sim_*
+match_report.png
+outputs/sim/similarity_comparison.png
+outputs/sim/entropy_diff_map.csv
+outputs/sim/similarity_report.txt
