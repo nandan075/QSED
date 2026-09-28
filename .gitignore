@@ -1,0 +1,92 @@
+# ==============================================================================
+# Quantum_CV Root .gitignore
+# Covers Quantum_CV root, QSED module, and QCSI hybrid framework
+# ==============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# C extensions
+*.obj
+*.o
+*.pyd
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# IDEs & Editor configs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating System artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Packaging & Distribution
+build/
+dist/
+*.egg-info/
+*.egg
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+.installed.cfg
+
+# Machine Learning weights & cache
+*.pt
+*.pth
+*.bin
+*.onnx
+.cache/
+hf_cache/
+
+# Experiment outputs & temporary scratch
+scratch/
+**/scratch/
+outputs/
+**/outputs/
+QSED_utf8.md
+
+# Generated demo & benchmark runtime data
+QCSI/demo_data/
+QCSI/data/benchmark_dataset/
+QCSI/data/pairs/
+
+# Generated run plots & reports
+*match_report.png
+*demo_report.png
+*.log
+
+# Stray CLI redirect artifact
+QSED/notebooks/0.14.0
