@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDEs
+.vscode/
+.idea/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Project specific temporary
+scratch/
+QSED_utf8.md
+outputs/my_experiment
+outputs/similarity*
+outputs/test_*
+outputs/v3_*
+outputs/sim_*
+match_report.png
+outputs/sim/similarity_comparison.png
+outputs/sim/entropy_diff_map.csv
+outputs/sim/similarity_report.txt
