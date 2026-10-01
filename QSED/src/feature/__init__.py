@@ -23,6 +23,20 @@ from .quantum_sift_entropy import (
     compute_mixed_state_fidelity,
     compute_4direction_sift_match
 )
+from .entropy_descriptor import (
+    extract_entropy_descriptor,
+    extract_all_entropy_descriptors,
+    match_entropy_descriptors,
+    compute_pairwise_distances,
+    compute_image_similarity_entropy_descriptor,
+    apply_reflection_padding,
+    get_p_neighborhood_labels,
+    visualize_keypoint_neighborhood,
+    visualize_matches,
+    P_LABELS_RASTER,
+    P_LABELS_CLOCKWISE,
+    P_OFFSETS_DICT,
+)
 
 __all__ = [
     'angular_difference',
@@ -54,5 +68,17 @@ __all__ = [
     'compute_quantum_jsd',
     'compute_mixed_state_fidelity',
     'compute_4direction_sift_match',
+    'extract_entropy_descriptor',
+    'extract_all_entropy_descriptors',
+    'match_entropy_descriptors',
+    'compute_pairwise_distances',
+    'compute_image_similarity_entropy_descriptor',
+    'apply_reflection_padding',
+    'get_p_neighborhood_labels',
+    'visualize_keypoint_neighborhood',
+    'visualize_matches',
+    'P_LABELS_RASTER',
+    'P_LABELS_CLOCKWISE',
+    'P_OFFSETS_DICT',
 ]
 
