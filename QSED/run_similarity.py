@@ -16,6 +16,7 @@ import os
 import sys
 import cv2
 import numpy as np
+from typing import Optional, List, Dict, Tuple, Any
 
 # Ensure src can be imported
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -124,7 +125,15 @@ def run_sift_entropy_similarity(img1_path: str, img2_path: str, max_kps: int, ro
         print("=" * 70 + "\n")
 
 
-def run_local_entropy_24d_similarity(img1_path: str, img2_path: str, max_kps: int = 128, norm: str = "none", ordering: str = "raster", output_dir: str = "outputs/similarity_24d"):
+def run_local_entropy_similarity(
+    img1_path: str,
+    img2_path: str,
+    dimension: int = 9,
+    max_kps: int = 128,
+    norm: str = "none",
+    ordering: str = "raster",
+    output_dir: Optional[str] = None
+):
     raw_i1 = cv2.imread(img1_path, cv2.IMREAD_GRAYSCALE)
     raw_i2 = cv2.imread(img2_path, cv2.IMREAD_GRAYSCALE)
 
@@ -133,30 +142,49 @@ def run_local_entropy_24d_similarity(img1_path: str, img2_path: str, max_kps: in
     if raw_i2 is None:
         raise FileNotFoundError(f"Cannot read image: {img2_path}")
 
+    mode_title = f"{dimension}-D LOCAL VON NEUMANN ENTROPY (3x3 SLIDING WINDOW OVER 5x5)" if dimension == 9 else f"{dimension}-D LOCAL VON NEUMANN ENTROPY (24 PROBE NEIGHBORS)"
+
     print("\n" + "=" * 70)
-    print("   24-D LOCAL VON NEUMANN ENTROPY KEYPOINT SIMILARITY & MATCHING")
+    print(f"   {mode_title}")
     print("=" * 70)
 
-    # Detect keypoints
+    # Detect keypoints using fast vectorized NMS pipeline
     kps_1 = detect_default_keypoints(raw_i1, max_keypoints=max_kps)
     kps_2 = detect_default_keypoints(raw_i2, max_keypoints=max_kps)
 
     res = compute_image_similarity_entropy_descriptor(
-        raw_i1, raw_i2, keypoints_a=kps_1, keypoints_b=kps_2, norm=norm, ordering=ordering
+        raw_i1, raw_i2, keypoints_a=kps_1, keypoints_b=kps_2, norm=norm, ordering=ordering, dimension=dimension
     )
 
-    print(f"[*] Image 1 Keypoints detected : {res['num_keypoints_a']}")
-    print(f"[*] Image 2 Keypoints detected : {res['num_keypoints_b']}")
-    print(f"[*] Corresponding Matches      : {res['num_matches']}")
-    print(f"[*] Match Coverage Ratio       : {res['match_ratio'] * 100:.2f}%")
-    print(f"[*] Mean Descriptor Distance   : {res['mean_descriptor_distance']:.4f}")
-    print("-" * 70)
-    print(f"[+] 24-D Entropy Similarity    : {res['similarity_score']:.2f}%")
+    if output_dir is None:
+        output_dir = f"outputs/similarity_{dimension}d"
+    os.makedirs(output_dir, exist_ok=True)
+    vis_path = os.path.join(output_dir, f"matches_{dimension}d_entropy.png")
+
+    visualize_matches(
+        raw_i1, res['keypoints_a'], raw_i2, res['keypoints_b'], res['raw_matches'],
+        save_path=vis_path,
+        similarity_score=res['similarity_score'],
+        mean_distance=res['mean_descriptor_distance'],
+        dimension=dimension
+    )
+
+    # Output detailed summary to terminal
+    print("\n" + "=" * 70)
+    print("               QUANTUM SIMILARITY RESULTS SUMMARY")
+    print("=" * 70)
+    print(f"  [+] OVERALL SIMILARITY SCORE : {res['similarity_score']:>6.2f}%")
+    print(f"  [*] Mean Descriptor Distance : {res['mean_descriptor_distance']:>6.4f}")
+    print(f"  [*] Image 1 Keypoints        : {res['num_keypoints_a']:>6d}")
+    print(f"  [*] Image 2 Keypoints        : {res['num_keypoints_b']:>6d}")
+    print(f"  [*] Matched Keypoint Pairs   : {res['num_matches']:>6d} ({res['match_ratio'] * 100:.2f}% coverage)")
+    print(f"  [*] Architecture             : {dimension}-D Von Neumann Entropy")
+    print(f"  [+] Result Image Annotated   : {vis_path}")
     print("=" * 70)
 
-    # Expose raw descriptor distances for analysis
+    # Expose sample matched pairs
     if res['num_matches'] > 0:
-        print("\n--- Sample Matched Pairs & Raw Euclidean Distances ---")
+        print("\n--- Top Matched Pairs & Raw Euclidean Distances ---")
         print(f"{'Match #':<8} | {'KP1 (x, y)':<16} | {'KP2 (x, y)':<16} | {'Distance':<10}")
         print("-" * 56)
         for idx, (ia, ib, dist) in enumerate(res['raw_matches'][:10]):
@@ -167,37 +195,38 @@ def run_local_entropy_24d_similarity(img1_path: str, img2_path: str, max_kps: in
             print(f"{idx+1:<8} | {pos_a:<16} | {pos_b:<16} | {dist:<10.4f}")
         if len(res['raw_matches']) > 10:
             print(f"... and {len(res['raw_matches']) - 10} more matches.")
-        print("-" * 56 + "\n")
+        print("-" * 56)
 
-    os.makedirs(output_dir, exist_ok=True)
-    vis_path = os.path.join(output_dir, "matches_24d_entropy.png")
-    visualize_matches(raw_i1, res['keypoints_a'], raw_i2, res['keypoints_b'], res['raw_matches'], save_path=vis_path)
-    print(f"[+] Match visualization saved to: {vis_path}\n")
+    print(f"\n[+] Visualization with similarity badge saved to:\n    {os.path.abspath(vis_path)}\n")
+    return res
 
 
 def main():
     parser = argparse.ArgumentParser(description="Quantum Image Similarity & Matching")
     parser.add_argument("--img1", type=str, required=True, help="Path to first image.")
     parser.add_argument("--img2", type=str, required=True, help="Path to second image.")
-    parser.add_argument("--mode", type=str, choices=["pixel", "sift_entropy", "local_entropy_24d"], default="sift_entropy",
-                        help="Matching mode: 'sift_entropy' (default), 'local_entropy_24d' (24-D local Von Neumann entropy), or 'pixel'.")
+    parser.add_argument("--mode", type=str, choices=["local_entropy_9d", "local_entropy_24d", "sift_entropy", "pixel"],
+                        default="local_entropy_9d",
+                        help="Matching mode: 'local_entropy_9d' (default, 3x3 sliding over 5x5), 'local_entropy_24d' (24 probe positions), 'sift_entropy', or 'pixel'.")
     parser.add_argument("--rotate", action="store_true", default=True,
                         help="Perform 4-directional cardinal rotation search (for sift_entropy/pixel modes).")
     parser.add_argument("--resize", type=int, default=1024, help="Resize dimension for pixel mode.")
-    parser.add_argument("--kps", type=int, default=128, help="Max keypoints for SIFT / 24-D entropy mode.")
+    parser.add_argument("--kps", type=int, default=128, help="Max keypoints for SIFT / local entropy modes.")
     parser.add_argument("--norm", type=str, choices=["none", "unit_entropy", "l2"], default="none",
-                        help="Normalization for 24-D entropy descriptor (default: 'none').")
+                        help="Normalization for entropy descriptor (default: 'none').")
     parser.add_argument("--ordering", type=str, choices=["raster", "clockwise"], default="raster",
                         help="Position ordering for 24-D descriptor: 'raster' (default) or 'clockwise'.")
-    parser.add_argument("--output", type=str, default="outputs/similarity_24d",
+    parser.add_argument("--output", type=str, default=None,
                         help="Output directory for visualizations and reports.")
 
     args = parser.parse_args()
 
     if args.mode == "pixel":
         run_pixel_similarity(args.img1, args.img2, resize=args.resize, rotate=args.rotate)
+    elif args.mode == "local_entropy_9d":
+        run_local_entropy_similarity(args.img1, args.img2, dimension=9, max_kps=args.kps, norm=args.norm, ordering=args.ordering, output_dir=args.output)
     elif args.mode == "local_entropy_24d":
-        run_local_entropy_24d_similarity(args.img1, args.img2, max_kps=args.kps, norm=args.norm, ordering=args.ordering, output_dir=args.output)
+        run_local_entropy_similarity(args.img1, args.img2, dimension=24, max_kps=args.kps, norm=args.norm, ordering=args.ordering, output_dir=args.output)
     else:
         run_sift_entropy_similarity(args.img1, args.img2, max_kps=args.kps, rotate=args.rotate)
 

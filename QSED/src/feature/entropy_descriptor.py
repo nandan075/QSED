@@ -101,6 +101,22 @@ LOCAL_3X3_OFFSETS: List[Tuple[int, int]] = [
     ( 1, -1), ( 1, 0), ( 1, 1)
 ]
 
+# 9-D Sliding Window: 9 valid positions of a 3x3 window sliding across a 5x5 matrix (stride 1)
+# Center coordinates relative to KP:
+#   Top-Left=(-1,-1) [P7], Top-Center=(-1,0) [P8], Top-Right=(-1,1) [P9]
+#   Mid-Left=(0,-1) [P12], Center=(0,0) [KP],      Mid-Right=(0,1) [P13]
+#   Bot-Left=(1,-1) [P16], Bot-Center=(1,0) [P17], Bot-Right=(1,1) [P18]
+SLIDING_9_LABELS: List[str] = [
+    "W1_TL", "W2_TC", "W3_TR",
+    "W4_ML", "W5_CENTER", "W6_MR",
+    "W7_BL", "W8_BC", "W9_BR"
+]
+SLIDING_9_OFFSETS: List[Tuple[int, int]] = [
+    (-1, -1), (-1,  0), (-1,  1),
+    ( 0, -1), ( 0,  0), ( 0,  1),
+    ( 1, -1), ( 1,  0), ( 1,  1)
+]
+
 
 # =============================================================================
 # 2. NEIGHBORHOOD VERIFICATION & HELPER FUNCTIONS
@@ -214,30 +230,30 @@ def extract_entropy_descriptor(
     ordering: str = "raster",
     norm: str = "none",
     pad_width: int = 3,
-    epsilon: float = 1e-10
+    epsilon: float = 1e-10,
+    dimension: int = 24
 ) -> np.ndarray:
     """
-    Calculate the 24-dimensional Von Neumann entropy descriptor for a single keypoint.
+    Calculate the Von Neumann entropy descriptor for a single keypoint (9-D or 24-D).
 
-    Pipeline:
-    1. Identify the 24 pixels surrounding KP in the 5x5 neighborhood.
-    2. Exclude KP itself (center).
-    3. For EACH of the 24 pixels Pi, compute the Von Neumann entropy of its 3x3 neighborhood.
-    4. Assemble F(KP) = [S1, S2, ..., S24] of shape (24,).
+    Architectures:
+    - dimension = 9: Sliding 3x3 window moved across the 5x5 matrix with stride 1 (9 valid sub-windows).
+      Centers: [(-1,-1), (-1,0), (-1,1), (0,-1), (0,0), (0,1), (1,-1), (1,0), (1,1)] relative to KP.
+      Captures the complete 5x5 neighborhood including the center KP patch.
+    - dimension = 24: 24 probe positions P1..P24 surrounding KP (center KP excluded).
+      Each Pi is the center of its own 3x3 patch (extends into 7x7 receptive field).
 
     Args:
         image: 2D input grayscale image.
         keypoint: Keypoint object (with .x, .y attributes) or (x, y) tuple/list.
-        ordering: Position ordering: 'raster' (default, row-major P1..P24) or 'clockwise'.
-        norm: Normalization strategy:
-              'none' (default): Keep raw entropy values in bits [0, log2(9)].
-              'unit_entropy': Divide by log2(9) to map into [0, 1].
-              'l2': Normalize vector to unit Euclidean norm.
+        ordering: Position ordering: 'raster' (default) or 'clockwise' (for 24-D).
+        norm: Normalization strategy ('none', 'unit_entropy', 'l2').
         pad_width: Padding width for boundary reflection padding (default: 3).
         epsilon: Stability constant for density matrix construction.
+        dimension: Descriptor dimension (9 or 24, default: 24).
 
     Returns:
-        np.ndarray: 24-dimensional descriptor vector of shape (24,).
+        np.ndarray: Descriptor vector of shape (dimension,).
     """
     # Extract coordinates (x = col, y = row)
     if hasattr(keypoint, 'x') and hasattr(keypoint, 'y'):
@@ -245,28 +261,29 @@ def extract_entropy_descriptor(
     else:
         x, y = int(keypoint[0]), int(keypoint[1])
 
-    # Reflection padding ensures boundary keypoints have complete 3x3 neighborhoods for all Pi
     padded = apply_reflection_padding(image, pad_width=pad_width)
     kp_y_pad = y + pad_width
     kp_x_pad = x + pad_width
 
-    # Select ordering
-    if ordering == "raster":
-        offsets = P_OFFSETS_RASTER
-    elif ordering == "clockwise":
-        offsets = P_OFFSETS_CLOCKWISE
+    # Select offsets based on dimension
+    if dimension == 9:
+        offsets = SLIDING_9_OFFSETS
+    elif dimension == 24:
+        if ordering == "raster":
+            offsets = P_OFFSETS_RASTER
+        elif ordering == "clockwise":
+            offsets = P_OFFSETS_CLOCKWISE
+        else:
+            raise ValueError(f"Unknown ordering '{ordering}'. Expected 'raster' or 'clockwise'.")
     else:
-        raise ValueError(f"Unknown ordering '{ordering}'. Expected 'raster' or 'clockwise'.")
+        raise ValueError(f"Unsupported descriptor dimension: {dimension}. Choose 9 or 24.")
 
-    # Compute 24 entropy values
-    descriptor = np.zeros(24, dtype=np.float64)
+    descriptor = np.zeros(dimension, dtype=np.float64)
     for i, (dy, dx) in enumerate(offsets):
         s, _, _ = extract_single_p_entropy(padded, kp_y_pad, kp_x_pad, dy, dx, epsilon=epsilon)
         descriptor[i] = s
 
-    # Normalization (explicit, documented)
     descriptor = apply_descriptor_normalization(descriptor, norm=norm)
-
     return descriptor
 
 
@@ -276,10 +293,11 @@ def extract_all_entropy_descriptors(
     ordering: str = "raster",
     norm: str = "none",
     pad_width: int = 3,
-    epsilon: float = 1e-10
+    epsilon: float = 1e-10,
+    dimension: int = 24
 ) -> np.ndarray:
     """
-    Extract 24-dimensional entropy descriptors for a list of N keypoints.
+    Extract Von Neumann entropy descriptors (9-D or 24-D) for a list of N keypoints.
 
     Args:
         image: 2D grayscale image.
@@ -288,25 +306,30 @@ def extract_all_entropy_descriptors(
         norm: 'none' (default), 'unit_entropy', or 'l2'.
         pad_width: Padding width (default: 3).
         epsilon: Stability constant.
+        dimension: Descriptor dimension (9 or 24, default: 24).
 
     Returns:
-        np.ndarray: Feature matrix of shape (N, 24).
+        np.ndarray: Feature matrix of shape (N, dimension).
     """
     if len(keypoints) == 0:
-        return np.empty((0, 24), dtype=np.float64)
+        return np.empty((0, dimension), dtype=np.float64)
 
-    # Pad image once for efficiency across all N keypoints
     padded = apply_reflection_padding(image, pad_width=pad_width)
 
-    if ordering == "raster":
-        offsets = P_OFFSETS_RASTER
-    elif ordering == "clockwise":
-        offsets = P_OFFSETS_CLOCKWISE
+    if dimension == 9:
+        offsets = SLIDING_9_OFFSETS
+    elif dimension == 24:
+        if ordering == "raster":
+            offsets = P_OFFSETS_RASTER
+        elif ordering == "clockwise":
+            offsets = P_OFFSETS_CLOCKWISE
+        else:
+            raise ValueError(f"Unknown ordering '{ordering}'. Expected 'raster' or 'clockwise'.")
     else:
-        raise ValueError(f"Unknown ordering '{ordering}'. Expected 'raster' or 'clockwise'.")
+        raise ValueError(f"Unsupported descriptor dimension: {dimension}. Choose 9 or 24.")
 
     n_kps = len(keypoints)
-    descriptors = np.zeros((n_kps, 24), dtype=np.float64)
+    descriptors = np.zeros((n_kps, dimension), dtype=np.float64)
 
     for idx, kp in enumerate(keypoints):
         if hasattr(kp, 'x') and hasattr(kp, 'y'):
@@ -498,14 +521,15 @@ def compute_image_similarity_entropy_descriptor(
     keypoints_b: Optional[List[Any]] = None,
     matching_method: str = "greedy",
     norm: str = "none",
-    ordering: str = "raster"
+    ordering: str = "raster",
+    dimension: int = 24
 ) -> Dict[str, Any]:
     """
-    Full end-to-end comparison between Image A and Image B using the 24-D Von Neumann descriptor.
+    Full end-to-end comparison between Image A and Image B using the Von Neumann descriptor (9-D or 24-D).
 
     Pipeline:
-    Image A -> detect/use keypoints -> calculate 24-D entropy descriptors
-    Image B -> detect/use keypoints -> calculate 24-D entropy descriptors
+    Image A -> detect/use keypoints -> calculate entropy descriptors (9-D or 24-D)
+    Image B -> detect/use keypoints -> calculate entropy descriptors (9-D or 24-D)
     Match descriptors between Image A and Image B (handles differing keypoint counts).
     Compute distance metrics and image-level similarity score.
 
@@ -515,22 +539,24 @@ def compute_image_similarity_entropy_descriptor(
         keypoints_a: Optional pre-detected keypoints for Image A.
                      If None, detects keypoints using QSED edge/score pipeline.
         keypoints_b: Optional pre-detected keypoints for Image B.
-        matching_method: 'mutual_nn' (default) or 'nn_a_to_b'.
+        matching_method: 'mutual_nn' or 'greedy' (default).
         norm: Normalization strategy ('none', 'unit_entropy', 'l2').
-        ordering: 24-pixel ordering ('raster' or 'clockwise').
+        ordering: Position ordering ('raster' or 'clockwise').
+        dimension: Descriptor dimension (9 or 24, default: 24).
 
     Returns:
         Dict containing:
             - 'similarity_score': Overall similarity in [0, 100]%
             - 'mean_descriptor_distance': Average Euclidean distance of matched keypoints
+            - 'dimension': 9 or 24
             - 'num_keypoints_a': Count of keypoints in Image A
             - 'num_keypoints_b': Count of keypoints in Image B
             - 'num_matches': Number of corresponding keypoints
             - 'match_ratio': Matches / min(num_keypoints_a, num_keypoints_b)
             - 'raw_matches': List of (idx_a, idx_b, distance)
             - 'distance_matrix': Full pairwise distance matrix (N_A, N_B)
-            - 'descriptors_a': (N_A, 24) array
-            - 'descriptors_b': (N_B, 24) array
+            - 'descriptors_a': (N_A, dimension) array
+            - 'descriptors_b': (N_B, dimension) array
             - 'keypoints_a': Keypoints used for Image A
             - 'keypoints_b': Keypoints used for Image B
     """
@@ -540,9 +566,9 @@ def compute_image_similarity_entropy_descriptor(
     if keypoints_b is None:
         keypoints_b = detect_default_keypoints(image_b)
 
-    # 2. Extract 24-D descriptors for both images
-    desc_a = extract_all_entropy_descriptors(image_a, keypoints_a, ordering=ordering, norm=norm)
-    desc_b = extract_all_entropy_descriptors(image_b, keypoints_b, ordering=ordering, norm=norm)
+    # 2. Extract descriptors for both images
+    desc_a = extract_all_entropy_descriptors(image_a, keypoints_a, ordering=ordering, norm=norm, dimension=dimension)
+    desc_b = extract_all_entropy_descriptors(image_b, keypoints_b, ordering=ordering, norm=norm, dimension=dimension)
 
     n_a = len(keypoints_a)
     n_b = len(keypoints_b)
@@ -551,6 +577,7 @@ def compute_image_similarity_entropy_descriptor(
         return {
             "similarity_score": 0.0,
             "mean_descriptor_distance": float('inf'),
+            "dimension": dimension,
             "num_keypoints_a": n_a,
             "num_keypoints_b": n_b,
             "num_matches": 0,
@@ -571,17 +598,11 @@ def compute_image_similarity_entropy_descriptor(
     match_ratio = num_matches / min_kps if min_kps > 0 else 0.0
 
     # 4. Image-level similarity score:
-    # Max possible Euclidean distance between two 24-D entropy vectors:
-    # Each component is in [0, log2(9)] ≈ [0, 3.169925].
-    # Max distance = sqrt(24) * log2(9) ≈ 4.89898 * 3.169925 ≈ 15.529
-    max_theoretical_dist = np.sqrt(24.0) * np.log2(9.0) if norm == "none" else np.sqrt(24.0)
+    max_theoretical_dist = np.sqrt(float(dimension)) * np.log2(9.0) if norm == "none" else np.sqrt(float(dimension))
 
     if num_matches > 0:
-        # Distance-based quality: 1.0 for d=0, dropping gracefully
-        # Using exponential decay calibration: exp(-mean_dist / sigma)
-        sigma = 1.5  # Typical scale of entropy descriptor difference
+        sigma = 1.0 if dimension == 9 else 1.5
         dist_quality = float(np.mean(np.exp(-match_result["distances"] / sigma)))
-        # Score combines descriptor match quality (70%) and match coverage ratio (30%)
         similarity_score = (0.70 * dist_quality + 0.30 * match_ratio) * 100.0
         similarity_score = float(np.clip(similarity_score, 0.0, 100.0))
     else:
@@ -590,6 +611,7 @@ def compute_image_similarity_entropy_descriptor(
     return {
         "similarity_score": similarity_score,
         "mean_descriptor_distance": mean_dist,
+        "dimension": dimension,
         "num_keypoints_a": n_a,
         "num_keypoints_b": n_b,
         "num_matches": num_matches,
@@ -643,7 +665,8 @@ def detect_default_keypoints(
         grad_mag, dom_dir, edge_mask, dir_var, kp_score,
         grad_threshold_ratio=grad_threshold_ratio,
         variation_threshold=variation_threshold,
-        min_distance=3.0
+        min_distance=3.0,
+        max_keypoints=max_keypoints
     )
 
     kps.sort(key=lambda k: k.keypoint_score, reverse=True)
@@ -819,10 +842,13 @@ def visualize_matches(
     keypoints_b: List[Any],
     matches: List[Tuple[int, int, float]],
     max_display: int = 30,
-    save_path: Optional[str] = None
+    save_path: Optional[str] = None,
+    similarity_score: Optional[float] = None,
+    mean_distance: Optional[float] = None,
+    dimension: int = 9
 ) -> plt.Figure:
     """
-    Visualize keypoint correspondences between Image A and Image B based on 24-D entropy descriptors.
+    Visualize keypoint correspondences between Image A and Image B based on entropy descriptors.
 
     Args:
         image_a: 2D array of Image A.
@@ -832,6 +858,9 @@ def visualize_matches(
         matches: List of (idx_a, idx_b, distance) tuples.
         max_display: Maximum number of match lines to draw.
         save_path: Optional path to save the generated image.
+        similarity_score: Overall similarity score in [0, 100]%.
+        mean_distance: Average Euclidean descriptor distance.
+        dimension: 9 or 24 descriptor dimension.
 
     Returns:
         matplotlib.figure.Figure
@@ -845,13 +874,33 @@ def visualize_matches(
     composite[:h_a, :w_a] = image_a
     composite[:h_b, w_a:w_a + w_b] = image_b
 
-    fig, ax = plt.subplots(figsize=(16, 8))
+    fig, ax = plt.subplots(figsize=(16, 9))
     ax.imshow(composite, cmap='gray')
-    ax.set_title(
-        f"24-D Von Neumann Entropy Keypoint Matches ({len(matches)} corresponding pairs)",
-        fontsize=14, fontweight='bold'
-    )
+
+    title = f"Quantum {dimension}-D Local Entropy Keypoint Matches ({len(matches)} pairs)"
+    if similarity_score is not None:
+        title += f"  |  Similarity Score: {similarity_score:.2f}%"
+    if mean_distance is not None:
+        title += f"  |  Mean Dist: {mean_distance:.4f}"
+    ax.set_title(title, fontsize=15, fontweight='bold', pad=14)
     ax.axis('off')
+
+    # HUD Result Banner in top-left corner
+    if similarity_score is not None:
+        hud_text = (
+            f" SIMILARITY: {similarity_score:.2f}% \n"
+            f" Matches: {len(matches)} corresponding pairs\n"
+            f" Mean Distance: {mean_distance:.4f}\n"
+            f" Architecture: {dimension}-D Sliding Window"
+        )
+        ax.text(
+            0.02, 0.96, hud_text,
+            transform=ax.transAxes,
+            fontsize=12, fontweight='bold',
+            color='yellow',
+            verticalalignment='top',
+            bbox=dict(boxstyle='round,pad=0.6', facecolor='black', alpha=0.85, edgecolor='cyan', linewidth=2)
+        )
 
     # Sort matches by distance (lowest distance / highest confidence first)
     sorted_matches = sorted(matches, key=lambda m: m[2])[:max_display]

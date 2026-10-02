@@ -275,3 +275,44 @@ def test_7_similarity():
     assert "distance_matrix" in match_res
     assert match_res["distance_matrix"].shape == (10, 15), "Distance matrix must be (10, 15)"
     assert match_res["num_matches"] <= min(10, 15), "Mutual matches cannot exceed min(N_A, N_B)"
+
+
+# =============================================================================
+# Test 8 — 9-D Sliding Window Descriptor (3x3 sliding over 5x5)
+# =============================================================================
+
+def test_8_descriptor_9d():
+    """
+    Test 8:
+    Verify the 9-dimensional sliding window descriptor:
+    - Single keypoint descriptor shape is (9,).
+    - N keypoints descriptor shape is (N, 9).
+    - All entropy values in [0, log2(9)].
+    - 9-D similarity matching works and produces similarity score.
+    """
+    img = np.random.RandomState(42).randint(0, 256, (32, 32)).astype(np.float64)
+    kp = Keypoint(x=10, y=12, dominant_direction=45.0, gradient_magnitude=100.0,
+                  directional_variation=0.5, keypoint_score=0.8)
+
+    desc_9d = extract_entropy_descriptor(img, kp, dimension=9)
+    assert isinstance(desc_9d, np.ndarray)
+    assert desc_9d.shape == (9,), f"Expected shape (9,), got {desc_9d.shape}"
+    assert np.all(desc_9d >= 0.0), "Entropy must be non-negative"
+    assert np.all(desc_9d <= np.log2(9.0) + 1e-6), "Entropy cannot exceed log2(9)"
+
+    kps = [Keypoint(x=i * 5 + 3, y=i * 4 + 3, dominant_direction=0.0, gradient_magnitude=1.0,
+                    directional_variation=0.1, keypoint_score=0.5) for i in range(5)]
+    mat_9d = extract_all_entropy_descriptors(img, kps, dimension=9)
+    assert mat_9d.shape == (5, 9), f"Expected shape (5, 9), got {mat_9d.shape}"
+
+    # End-to-end 9-D similarity comparison
+    img_a = np.zeros((64, 64), dtype=np.float64)
+    img_a[16:48, 16:48] = 200.0
+    img_b = img_a.copy()
+
+    res_9d = compute_image_similarity_entropy_descriptor(img_a, img_b, dimension=9)
+    assert res_9d["dimension"] == 9
+    assert res_9d["descriptors_a"].shape[1] == 9
+    assert res_9d["descriptors_b"].shape[1] == 9
+    assert res_9d["similarity_score"] >= 95.0
+    assert np.isclose(res_9d["mean_descriptor_distance"], 0.0, atol=1e-4)
