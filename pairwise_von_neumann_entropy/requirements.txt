@@ -1,0 +1,11 @@
+# Pairwise Von Neumann Entropy Keypoint Matching Dependencies
+numpy>=1.24.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+pillow>=9.5.0
+
+# Optional Dependencies (Recommended for SIFT/ORB detection and OpenCV RANSAC)
+opencv-python>=4.7.0
+
+# Testing Framework
+pytest>=7.3.0
